@@ -1,0 +1,9 @@
+*.o
+*.zip
+*.txt
+
+server
+client
+
+cpplint.py
+filter_options
