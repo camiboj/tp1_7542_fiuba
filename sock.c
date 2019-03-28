@@ -1,28 +1,39 @@
-#define _POSIX_C_SOURCE 200112L
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-#include <errno.h>
-#include <stdbool.h>
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <unistd.h>
-#define MAX_LEN_FILENAME 100
-#define MAX_LEN_FILE 2000
-
-
-
-
-
+/*
+   Ejemplo "completo" de uso de sockets:
+      - como obtener una direccion IP valida con getaddrinfo
+      - como conectarse a un server remoto
+      - como enviar y recibir mensajes
+      - y como liberar todos los recursos
+   El ejemplo esta lleno de comentarios y es bastante "verboso".
+   Se compila con 
+      gcc -std=c99 -o buscar_nota_fiuba  buscar_nota_fiuba.c 
+   Se ejecuta como
+      ./buscar_nota_fiuba  NODEIDE
+   donde NODEID es el id de una nota en el sitio de la fiuba.
+   Por ejemplo
+      ./buscar_nota_fiuba 745
+      
+   se descarga la pagina de Informacion de Alumnos
+*/
 
 
 
 /*
+   Este define le dice a nuestro compilador que queremos 
+   usar las extensiones POSIX.
+   getaddrinfo, gai_error y freeaddrinfo no estan incluidas en el
+   estandar C99 pero si en las ultimas versiones de POSIX.
+   
+   Con esto le decimos al compilador que esta OK
+*/
+#define _POSIX_C_SOURCE 200112L
+
+/*
    Includes clasicos de C
 */
+#include <string.h>
+#include <stdio.h>
 #include <errno.h>
 
 #include <stdbool.h>
@@ -32,7 +43,10 @@
    Funciones como socket, connect, close son propias del
    sistema operativo.
 */
-
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
 
 /*
    Este es un ejemplo de juguete y por eso usaremos buffers chicos
@@ -42,7 +56,7 @@
 #define REQUEST_MAX_LEN 2000
 #define RESPONSE_MAX_LEN 1024
 
-int client_start(size_t request_len, char* request, char* host, char* port) {
+int s_start(size_t request_len, char* request, char* host, char* port) {
    int s = 0;
    bool are_we_connected = false;
    bool is_there_a_socket_error = false;
@@ -202,67 +216,4 @@ int client_start(size_t request_len, char* request, char* host, char* port) {
    else {
       return 0;
    }
-}
-
-
-
-//******************************************************
-//*			              CLIENT		       	       *
-//******************************************************
-
-
-//client ​ <host> <port> ​ [ ​ <filename>​ ]
-
-//Donde ​ <host>​ y ​ <port>​ son la dirección IPv4 o ​ hostname
-//y el puerto o servicio donde el servidor estará escuchando 
-//la conexión TCP.
-
-
-int file_processor(char* filename, size_t* path_len, char* path) {
-    FILE* file = fopen(filename, "r");
-    if (!file) {
-	//fprintf(stderr, "ERROR\n");
-	return 1;
-    }
-
-    int i = 0;
-    while (!feof(file) && i < *path_len) {
-	int c = fgetc(file);
-        path[i] = c;
-	i++;
-    }
-    path[i-2] = (int)'\0'; //me estaba leyendo un \n y un eof o algo asi
-    fprintf(stdout, "%s\n", path);
-    fclose(file);
-    *path_len = i;
-    return 0;
-}
-
-
-int main(int argc, char* argv[]) {
-    if (argc != 3 && argc !=4) {
-	fprintf(stderr, "Uso:\n./client <direccion> <puerto> [<input>]\n");
-	return 1;
-    }
-    
-    char filename[MAX_LEN_FILENAME];
-    if (argc == 3) {
-	char* status = fgets(filename, MAX_LEN_FILENAME, stdin);
-	filename[strlen(filename) -1] = '\0';
-	if (!status) return 1;
-    }
-    if (argc == 4) {
-	snprintf(filename, MAX_LEN_FILENAME, "%s", argv[3]);
-    }
-
-    char path[MAX_LEN_FILE];
-    size_t path_len;
-    if (file_processor(filename, &path_len, path) ){
-	return 1;
-    }
-
-    char* host = argv[1];    
-    char* port = argv[2];
-    int result = client_start(path_len, path, host, port);
-    return result;
 }

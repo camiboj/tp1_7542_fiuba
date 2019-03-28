@@ -5,5 +5,7 @@
 server
 client
 
+execute.sh
+
 cpplint.py
 filter_options
