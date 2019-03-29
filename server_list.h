@@ -13,6 +13,7 @@ struct List;
 void list_create(struct List *self);
 void list_destroy(struct List *self);
 void list_insert(struct List *self, char* _key);
+void list_print(struct List *self);
 
 #endif
 
