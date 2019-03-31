@@ -111,12 +111,6 @@ int client_start(size_t request_len, char* request, char* host, char* port) {
                //no nos pudimos conectar :(
     }
 
-   /* Armamos el mensaje HTTP para hablar con el sitio web.
-      Es un mensaje HTTP minimalista, pero sirve.
-      Aqui decimos que pagina queremos leer.
-      [Ref http://es.wikipedia.org/wiki/Hypertext_Transfer_Protocol]
-    */
-
    
    /* Enviamos el mensaje intentando enviar todo el mensaje de un solo intento,
       y solo reintentando enviar aquellos bytes que no pudiero entrar */
@@ -222,18 +216,17 @@ int file_processor(char* filename, size_t* path_len, char* path) {
 
 
 int main(int argc, char* argv[]) {
-
     if (argc != 3 && argc !=4) {
 	    fprintf(stderr, "Uso:\n./client <direccion> <puerto> [<input>]\n");
 	    return 1;
     }
-
-    
     char filename[MAX_LEN_FILENAME];
     if (argc == 3) {
 	    char* status = fgets(filename, MAX_LEN_FILENAME, stdin);
 	    filename[strlen(filename) -1] = '\0';
-	    if (!status) return 1;
+	    if (!status) {
+            return 1;
+        }
     } else {
 	    snprintf(filename, MAX_LEN_FILENAME, "%s", argv[3]);
     }

@@ -31,7 +31,7 @@
 #define LEN_RESOURCE 7
 #define CORRECT_RESOURCE "/sensor"
 
-#define METHRES_SUCCESS_MESSAGE "200 OK\n\n"
+#define METHRES_SUCCESS_MESSAGE "HTTP/1.1 200 OK\n\n"
 
 
 #define MAX_LEN_ANSWER 16
@@ -39,7 +39,7 @@
 #define USER_AGENT_KEY "User-Agent:"
 #define USER_AGENT_VAL_OFFSET 12
 #define END_USER_AGENT_VAL "\n"
-#define MAX_LEN_USER_AGENT_VALUE 50
+#define MAX_LEN_USER_AGENT_VALUE 200
 
 #define MAX_LEN_LINE 100
 
@@ -115,17 +115,25 @@ int method_resource_processor(char* request) {
 
 void user_agent_processor(char* request, struct List *list) {
     char* key_start = strstr(request, USER_AGENT_KEY);
-    if (!key_start) return;
+    if (!key_start) {
+        return;
+    }
     char* value_start = key_start + USER_AGENT_VAL_OFFSET;
-    size_t len_value = 1;
+    size_t len_value = 0;
     while (value_start[len_value] && \
-           strcmp(value_start + len_value, END_USER_AGENT_VAL)) len_value++;
-
+           strcmp(value_start + len_value, END_USER_AGENT_VAL)) {
+               //printf("\nes fin? : %s \n", request);
+               len_value++;
+    }
     char value[MAX_LEN_USER_AGENT_VALUE]; //Do not use variable-length arrays
 
-    snprintf(value, len_value, "%s", value_start);
-    //fprintf(stdout, "%s\n", value);
+    //ACA
 
+    snprintf(value, MAX_LEN_USER_AGENT_VALUE -1 , "%s", value_start);
+    char* value_end = strstr(value, "\n");
+    if (value_end) {
+    *   value_end = '\0';
+    }
     list_insert(list, value);
 }
 
@@ -164,13 +172,13 @@ char* sensor_reader(FILE* sensor_file) {
     temperature = (temperature - 2000) / 100;
     char* message = malloc(MAX_LEN_TEMPERATURE_MESSAGE);
     snprintf(message, SIZE_TO_REPLACE,"%.2f", temperature);
-    printf("0: %s\n", message);
+    //printf("0: %s\n", message);
     return message;
 }
 
 
-void copy_and_complet(char* tamplate_filename, char* reply, size_t len_reply, char* replacement) {
-    
+void copy_and_complet(char* tamplate_filename, char* reply, \
+                      size_t len_reply, char* replacement) {
     FILE* tamplate = fopen(tamplate_filename, "r");
     if (!tamplate_filename) {
 	    //fprintf(stderr, "ERROR\n");
@@ -178,60 +186,47 @@ void copy_and_complet(char* tamplate_filename, char* reply, size_t len_reply, ch
     }
     
     size_t i = 0;
-    while(!feof(tamplate) && i < len_reply) {
+    while (!feof(tamplate) && i < len_reply) {
         reply[i] = (char) fgetc(tamplate);
         i++;
     }
     reply[i-1] = '\0';
     char* to_replace = strstr(reply, TO_REPLACE);
-    printf("\nrplacement = %s\n", replacement);
+    //printf("\nrplacement = %s\n", replacement);
     size_t len_replacement = strlen(replacement);
 
     
     
-    sprintf(to_replace, "%s", replacement);
+    snprintf(to_replace, strlen(to_replace) - 1, "%s", replacement);
     //printf("1: %s\n\n", reply);
     if (SIZE_TO_REPLACE > len_replacement) {
-        snprintf(&to_replace[len_replacement], strlen(&to_replace[SIZE_TO_REPLACE]),"%s", &to_replace[SIZE_TO_REPLACE]);
+        int i = strlen(&to_replace[SIZE_TO_REPLACE]);
+        snprintf(&to_replace[len_replacement], i,"%s", \
+                &to_replace[SIZE_TO_REPLACE]);
     }
     //printf("2: %s\n", reply);
     fclose(tamplate);
 }
 
-void process_client(int skt, char *buf, int size, struct List* list, char* temperature, \
-                    char* tamplate_filename) {
+void process_client(int skt, char *buf, int size, struct List* list,\
+                     char* temperature, char* tamplate_filename) {
     int received = 0;
     int s = 0;
     bool is_the_socket_valid = true;
     bool is_method_resource_valid = true;
     
-    bool is_first_line = true;
-    char* line;
+    //bool is_first_line = true;
+    //char* line;
     char* possible_answers[] = {METHRES_SUCCESS_MESSAGE, METHOD_ERROR_MESSAGE,\
                                RESOURCE_ERROR_MESSAGE};
 
+    
     while (received < size && is_the_socket_valid) {
         s = recv(skt, buf + received, size - received, MSG_NOSIGNAL);
-        int answer = 0;
-        line = strstr(buf, "\n");
-        if (line) {
-            if (is_first_line){
-                is_first_line = false;
-                answer = method_resource_processor(buf);
-                is_method_resource_valid = ! answer;
-                buf = line + 1;
-                send_message(skt, possible_answers[answer], \
-                     strlen(possible_answers[answer]));
-            } else {
-                user_agent_processor(line, list);
-            }
-        }
-        
         if ( !is_method_resource_valid ) {
             return;
         }
 
-        //fprintf(stdout, "%s\n", buf+received);
         if (s == 0) { // nos cerraron el socket :(
             is_the_socket_valid = false;
         } else if (s < 0) { // hubo un error >(
@@ -240,14 +235,15 @@ void process_client(int skt, char *buf, int size, struct List* list, char* tempe
             received += s;
         }
     }
-    //char* temperature = sensor_reader(sensor_file);
+    int answer = method_resource_processor(buf);
+    is_method_resource_valid = ! answer;
+    send_message(skt, possible_answers[answer], \
+                 strlen(possible_answers[answer]));
+    user_agent_processor(buf, list);
     
     char reply[MAX_LEN_REPLY];
     copy_and_complet(tamplate_filename, reply, MAX_LEN_REPLY, temperature);
     send_message(skt, reply, strlen(reply));
-    //printf("\nreply sended = %ld \n", strlen(reply));
-    //free(temperature);
-    //printf("%.2f\n", temperature);
 }
 
 
@@ -257,9 +253,9 @@ void process_client(int skt, char *buf, int size, struct List* list, char* tempe
 
 #define MAX_LEN_BUF 2000 
 
-int serv_start(char* port, struct List* list, FILE* sensor_file, char* template_filename) {
+int serv_start(char* port, struct List* list, \
+                FILE* sensor_file, char* template_filename) {
    int s = 0;
-   unsigned short len = 0;
    bool continue_running = true;
    bool is_the_accept_socket_valid = true;
    
@@ -341,13 +337,13 @@ int serv_start(char* port, struct List* list, FILE* sensor_file, char* template_
         } else {
             //printf("New client\n");
             memset(buf, 0, MAX_LEN_BUF);
-            process_client(peerskt, buf, MAX_LEN_BUF-1, list, temperature, template_filename); 
+            process_client(peerskt, buf, MAX_LEN_BUF-1, list, \
+                            temperature, template_filename); 
             shutdown(peerskt, SHUT_RDWR); 
             close(peerskt);
             free(temperature);
-         len = atoi(buf);
-         printf("Echoo %i bytes\n", len);
-  
+         //len = atoi(buf);
+         //printf("Echoo %i bytes\n", len);
       }
    }
    
@@ -396,7 +392,7 @@ int main(int argc, char* argv[]) {
     
     serv_start(port, &list, file, template_filename);
     //fin
-    //list_print(&list);
+    list_print(&list);
     list_destroy(&list);
     fclose(file);
     return 0;
