@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include <errno.h>
 #include <stdbool.h>
 
@@ -21,12 +20,12 @@
 #define MAX_LEN_REQUEST 2000
 
 #define METHOD_OFFSET 0
-#define METHOD_ERROR_MESSAGE "400 Bad request\n"
+#define METHOD_ERROR_MESSAGE "HTTP/1.1 400 Bad request\n"
 #define LEN_METHOD 3
 #define CORRECT_METHOD "GET"
 
 #define RESOURCE_OFFSET 4
-#define RESOURCE_ERROR_MESSAGE "404 Not found\n"
+#define RESOURCE_ERROR_MESSAGE "HTTP/1.1 404 Not found\n"
 
 #define LEN_RESOURCE 7
 #define CORRECT_RESOURCE "/sensor"
@@ -179,6 +178,8 @@ char* sensor_reader(FILE* sensor_file) {
 
 void copy_and_complet(char* tamplate_filename, char* reply, \
                       size_t len_reply, char* replacement) {
+    char aux[MAX_LEN_REPLY];
+    
     FILE* tamplate = fopen(tamplate_filename, "r");
     if (!tamplate_filename) {
 	    //fprintf(stderr, "ERROR\n");
@@ -186,29 +187,29 @@ void copy_and_complet(char* tamplate_filename, char* reply, \
     }
     
     size_t i = 0;
-    while (!feof(tamplate) && i < len_reply) {
-        reply[i] = (char) fgetc(tamplate);
+    while (!feof(tamplate) && i < MAX_LEN_REPLY) {
+        aux[i] = (char) fgetc(tamplate);
         i++;
     }
-    reply[i-1] = '\0';
-    char* to_replace = strstr(reply, TO_REPLACE);
+    aux[i-1] = '\0';
+
+    char* to_replace = strstr(aux, TO_REPLACE);
     //printf("\nrplacement = %s\n", replacement);
-    size_t len_replacement = strlen(replacement);
+    //size_t len_replacement = strlen(replacement);
 
     
     
     snprintf(to_replace, strlen(to_replace) - 1, "%s", replacement);
+    snprintf(reply, len_reply - 1, "%s", aux);
+    
     //printf("1: %s\n\n", reply);
-    if (SIZE_TO_REPLACE > len_replacement) {
-        int i = strlen(&to_replace[SIZE_TO_REPLACE]);
-        snprintf(&to_replace[len_replacement], i,"%s", \
-                &to_replace[SIZE_TO_REPLACE]);
-    }
+    int len = strlen(&to_replace[SIZE_TO_REPLACE]);
+    snprintf(&reply[strlen(reply)], len,"%s", &to_replace[SIZE_TO_REPLACE]);
     //printf("2: %s\n", reply);
     fclose(tamplate);
 }
 
-void process_client(int skt, char *buf, int size, struct List* list,\
+bool process_client(int skt, char *buf, int size, struct List* list,\
                      char* temperature, char* tamplate_filename) {
     int received = 0;
     int s = 0;
@@ -223,10 +224,6 @@ void process_client(int skt, char *buf, int size, struct List* list,\
     
     while (received < size && is_the_socket_valid) {
         s = recv(skt, buf + received, size - received, MSG_NOSIGNAL);
-        if ( !is_method_resource_valid ) {
-            return;
-        }
-
         if (s == 0) { // nos cerraron el socket :(
             is_the_socket_valid = false;
         } else if (s < 0) { // hubo un error >(
@@ -239,11 +236,13 @@ void process_client(int skt, char *buf, int size, struct List* list,\
     is_method_resource_valid = ! answer;
     send_message(skt, possible_answers[answer], \
                  strlen(possible_answers[answer]));
+    if (! is_method_resource_valid) return false;
     user_agent_processor(buf, list);
     
     char reply[MAX_LEN_REPLY];
     copy_and_complet(tamplate_filename, reply, MAX_LEN_REPLY, temperature);
     send_message(skt, reply, strlen(reply));
+    return true;
 }
 
 
@@ -323,9 +322,13 @@ int serv_start(char* port, struct List* list, \
       close(skt);
       return 1;
    }
-    char* temperature;
-    while (continue_running) {
-        temperature = sensor_reader(sensor_file);
+    char* temperature = 0;
+    bool was_last_client_valid = true;
+
+    while (continue_running) { 
+        if (was_last_client_valid) {
+            temperature = sensor_reader(sensor_file);
+        }
         if (feof(sensor_file)){
             break;
         }
@@ -337,11 +340,12 @@ int serv_start(char* port, struct List* list, \
         } else {
             //printf("New client\n");
             memset(buf, 0, MAX_LEN_BUF);
-            process_client(peerskt, buf, MAX_LEN_BUF-1, list, \
-                            temperature, template_filename); 
+            was_last_client_valid = process_client(peerskt, buf, \
+                                             MAX_LEN_BUF-1, list,\
+                                             temperature, template_filename);
             shutdown(peerskt, SHUT_RDWR); 
             close(peerskt);
-            free(temperature);
+            if (was_last_client_valid) free(temperature);
          //len = atoi(buf);
          //printf("Echoo %i bytes\n", len);
       }
