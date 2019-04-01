@@ -17,10 +17,12 @@
 #define MAX_LEN_BUF 2000 
 
 
-void server_socket_create(struct server_socket *self, char* _port) {
+bool server_socket_create(struct server_socket *self, char* _port) {
     self->port = malloc(LEN_PORT);
+    if ( !self->port ) return false;
     snprintf(self->port, LEN_PORT , "%s", _port);
     self->current_peerskt = 0;
+    return true;
 }
 
 bool server_socket_start(struct server_socket *self) {
@@ -94,6 +96,7 @@ void server_socket_destroy(struct server_socket *self) {
 
 char* server_socket_receive_message(struct server_socket *self) { 
     char* buf = malloc(MAX_LEN_BUF);
+    if ( !buf ) return NULL;
     memset(buf, 0, MAX_LEN_BUF);
     int received = 0;
     int s = 0;

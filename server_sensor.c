@@ -29,6 +29,7 @@ char* server_sensor_read(struct server_sensor* self) {
     float temperature = (float) ntohs(read);
     temperature = (temperature - 2000) / 100;
     char* message = malloc(MAX_LEN_TEMPERATURE_MESSAGE);
+    if ( !message ) return NULL;
     snprintf(message, SIZE_TO_REPLACE,"%.2f", temperature);
     return message;
 }

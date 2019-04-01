@@ -18,51 +18,23 @@
 #include "server_socket.h"
 #include "server_sensor.h"
 #include "server_request_processor.h"
-
-
-#define TO_REPLACE "{{datos}}"
-#define SIZE_TO_REPLACE 9
-#define MAX_LEN_REPLY 2000
-
-
-
-
-void copy_and_complet(char* tamplate_filename, char* reply, \
-                      size_t len_reply, char* replacement) {
-    char aux[MAX_LEN_REPLY];
-    
-    FILE* tamplate = fopen(tamplate_filename, "r");
-    if (!tamplate_filename) {
-	    return;
-    }
-    
-    size_t i = 0;
-    while (!feof(tamplate) && i < MAX_LEN_REPLY) {
-        aux[i] = (char) fgetc(tamplate);
-        i++;
-    }
-    aux[i-1] = '\0';
-
-    char* to_replace = strstr(aux, TO_REPLACE);
-  
-    snprintf(to_replace, strlen(to_replace) - 1, "%s", replacement);
-    snprintf(reply, len_reply - 1, "%s", aux);
-    
-    int len = strlen(&to_replace[SIZE_TO_REPLACE]);
-    snprintf(&reply[strlen(reply)], len,"%s", &to_replace[SIZE_TO_REPLACE]);
-    fclose(tamplate);
-}
-
-
+#include "server_tamplate.h"
 
 bool process_client(struct List* list, char* temperature, \
-                    char* tamplate_filename, struct server_socket* socket) {
+                    struct server_template *template, \
+                    struct server_socket* socket) {
+    bool status = true;
     char* buffer = server_socket_receive_message(socket);
+    if ( !buffer ) return false;
 
     struct server_req_proc processor;
-    req_proc_create(&processor, buffer);
-
+    status = req_proc_create(&processor, buffer);
+    if ( !status ) {
+        free(buffer);
+        return false;
+    }
     char* answer = req_porc_method_resource(&processor);
+    if ( !answer ) return false;
     server_socket_send_message(socket, answer, strlen(answer));
 
     if (! req_porc_is_method_resource_valid(&processor)) {
@@ -73,15 +45,26 @@ bool process_client(struct List* list, char* temperature, \
     }
     char* us_ag = req_porc_user_agent(&processor);
     if (!us_ag) return false;
-    list_insert(list, us_ag);
+    status = list_insert(list, us_ag);
+    if ( !status ) {
+        free(buffer);
+        free(answer);
+        free(us_ag);
+        return false;
+    }
     
-    //template
-    char reply[MAX_LEN_REPLY];
-    copy_and_complet(tamplate_filename, reply, MAX_LEN_REPLY, temperature);
+    char* reply = server_template_cat(template, temperature);
+    if ( !reply ) {
+        free(buffer);
+        free(answer);
+        free(us_ag);
+        return false;
+    }
     
     server_socket_send_message(socket, reply, strlen(reply));
     
     req_proc_destroy(&processor);
+    free(reply);
     free(buffer);
     free(answer);
     free(us_ag);
@@ -98,23 +81,35 @@ int main(int argc, char* argv[]) {
     char* sensor_filename = argv[2];
     char* template_filename = argv[3];
     
-    // (port, sensor_filename, template_filename);
-    //int (char* port, char* sensor_filename, char* template_filename) {
     struct server_sensor sensor;
-    server_sensor_create(&sensor, sensor_filename);
-
+    if ( !server_sensor_create(&sensor, sensor_filename) ) return 1; 
+    
     struct List list;
     list_create(&list);
-    
-    
 
     struct server_socket socket;
-    server_socket_create(&socket, port);
+    if ( !server_socket_create(&socket, port) ) {
+        server_sensor_destroy(&sensor);
+        list_destroy(&list);
+        return 1;
+    }
+    if ( !server_socket_start(&socket) ) {
+        server_socket_destroy(&socket);
+        server_sensor_destroy(&sensor);
+        list_destroy(&list);
+        return 1;
+    }
 
-    if (!server_socket_start(&socket)) return 1;
-
+    struct server_template template;    
+    if ( !server_template_create(&template, template_filename) ) {
+        server_socket_destroy(&socket);
+        server_sensor_destroy(&sensor);
+        list_destroy(&list);
+        return 1;
+    }
     bool was_last_client_valid = true;
     char* temperature;
+    bool is_there_an_error = false;
 
     while (true) {
         if (was_last_client_valid) {
@@ -123,26 +118,31 @@ int main(int argc, char* argv[]) {
         if ( server_sensor_off(&sensor) ){
             break;
         }
+        if ( !temperature ) {
+            is_there_an_error = true;
+            break;
+        }
         int s = server_socket_accept_client(&socket);
         if (s == -1) {
-            return 1;
+            is_there_an_error = true;
+            break;
         }
         was_last_client_valid = process_client(&list, temperature,\
-                                         template_filename, &socket);
+                                         &template, &socket);
         server_socket_disable_client(&socket);
         if (was_last_client_valid) free(temperature);
     }
 
+    
     list_print(&list);
 
     list_destroy(&list);
-    
     server_socket_destroy(&socket);
     server_sensor_destroy(&sensor);
-    //} end
-
-
-
+    server_template_destoy(&template);
+    if (is_there_an_error) {
+        return 1;
+    }
 
     return 0;
 }

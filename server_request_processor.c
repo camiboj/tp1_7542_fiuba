@@ -32,10 +32,12 @@
 
 
 
-void req_proc_create(struct server_req_proc* self, char* request) {
+bool req_proc_create(struct server_req_proc* self, char* request) {
     self->request = malloc(MAX_LEN_REQUEST);
+    if ( !self->request ) return false;
     snprintf(self->request, MAX_LEN_REQUEST, "%s", request);
     self->is_method_resource_valid = false;
+    return true;
 }
 
 void req_proc_destroy(struct server_req_proc* self) {
@@ -66,6 +68,7 @@ int str_check(const char* request, size_t len,const char* str) {//, char* err) {
 //de tipo "200 OK" y devuelve 0
 char* req_porc_method_resource(struct server_req_proc* self) {
     char* answer = malloc(MAX_LEN_MESSAGE);
+    if ( !answer ) return NULL;
     enum error {METHRES_SUCCESS, METHOD_ERROR, RESOURCE_ERROR};
     char* position = self->request + METHOD_OFFSET;
     if (str_check(position, LEN_METHOD, CORRECT_METHOD)) {

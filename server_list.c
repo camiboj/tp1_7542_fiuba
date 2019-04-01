@@ -12,12 +12,14 @@ struct nodo {
 
 
 
-void nodo_create(nodo_t* self, char* _key) {
+bool nodo_create(nodo_t* self, char* _key) {
     self->value = 1;
     self->next = NULL;
     size_t len_key = strlen(_key) + 1;
     self->key = malloc(len_key);
+    if ( !self->key ) return false;
     snprintf(self->key, len_key, "%s", _key);
+    return true;
 }
 
 void list_create(struct List *self) {
@@ -37,27 +39,32 @@ void list_destroy(struct List *self) {
     }
 }
 
-void list_insert(struct List *self, char* _key) {
+bool list_insert(struct List *self, char* _key) {
+    bool status = true;
     nodo_t* current = self->first;
     while (current) {
 	    if ( !strcmp(current->key, _key) ){
 	        current->value++;
-	        return;
+	        return true;
 	    }
 	    current = current->next;
     }
     
     nodo_t* nodo = malloc(sizeof(nodo_t));
-    if (!nodo) return;
-    nodo_create(nodo, _key);
-
+    if (!nodo) return false;
+    status = nodo_create(nodo, _key);
+    if ( !status ) {
+        free(nodo);
+        return false;
+    }
     if (!self->first) {
 	    self->first = nodo;
 	    self->last = nodo;
-	    return;
+	    return true;
     }
     self->last->next = nodo;
     self->last = nodo;
+    return true;
 }
 
 /*
