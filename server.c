@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
         if (was_last_client_valid) {
             temperature = server_sensor_read(&sensor);
         }
-        if ( server_sensor_off(&sensor) ){
+        if ( !does_the_sensor_still_have_temperatures(&sensor) ){
             break;
         }
         if ( !temperature ) {
@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
         if (was_last_client_valid) free(temperature);
     }
 
-    
+    printf("# Estadisticas de visitantes\n");
     list_print(&list);
 
     list_destroy(&list);

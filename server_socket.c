@@ -41,14 +41,12 @@ bool server_socket_start(struct server_socket *self) {
     s = getaddrinfo(NULL, self->port, &hints, &ptr);
 
     if (s != 0) { 
-        //printf("Error in getaddrinfo: %s\n", gai_strerror(s));
         return false;
     }
 
     skt = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
 
     if (skt == -1) {
-        //printf("Error: %s\n", strerror(errno));
         freeaddrinfo(ptr);
         return false;
     }
@@ -56,7 +54,6 @@ bool server_socket_start(struct server_socket *self) {
     int val = 1;
     s = setsockopt(skt, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
     if (s == -1) {
-        //printf("Error: %s\n", strerror(errno));
         close(skt);
         freeaddrinfo(ptr);
         return false;
@@ -64,7 +61,6 @@ bool server_socket_start(struct server_socket *self) {
 
     s = bind(skt, ptr->ai_addr, ptr->ai_addrlen);
     if (s == -1) {
-        //printf("Error: %s\n", strerror(errno));
         close(skt);
         freeaddrinfo(ptr);
         return false;
@@ -73,7 +69,6 @@ bool server_socket_start(struct server_socket *self) {
     freeaddrinfo(ptr);
     s = listen(skt, MAX_WAITING_CLIENTS);
     if (s == -1) {
-        //printf("Error: %s\n", strerror(errno));
         close(skt);
         return false;
     }

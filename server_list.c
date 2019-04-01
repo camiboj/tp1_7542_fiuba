@@ -67,18 +67,8 @@ bool list_insert(struct List *self, char* _key) {
     return true;
 }
 
-/*
-void list_delete_first(struct List *self) {
-    if (self->first == self->last) self->last = NULL;
-    nodo_t* aux = self->first->next;
-    free(self->first->key);
-    free(self->first);
-    self->first = aux;
-}
-*/
-
 void list_print(struct List *self){
-    printf("# Estadisticas de visitantes\n");
+    //printf("# Estadisticas de visitantes\n");
     nodo_t* current = self->first;
     while (current) {        
         printf("\n* %s: %ld", current->key, current->value);

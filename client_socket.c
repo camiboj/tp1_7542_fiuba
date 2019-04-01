@@ -95,7 +95,7 @@ bool client_socket_start(struct client_socket *self) {
         }
     }
 
-   freeaddrinfo(result);
+    freeaddrinfo(result);
 
     return are_we_connected;
 }

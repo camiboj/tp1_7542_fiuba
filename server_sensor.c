@@ -34,8 +34,8 @@ char* server_sensor_read(struct server_sensor* self) {
     return message;
 }
 
-bool server_sensor_off(struct server_sensor* self) {
-    return feof(self->file);
+bool does_the_sensor_still_have_temperatures(struct server_sensor* self) {
+    return !feof(self->file);
 }
 
 

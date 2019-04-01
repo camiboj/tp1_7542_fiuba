@@ -56,16 +56,6 @@ int str_check(const char* request, size_t len,const char* str) {//, char* err) {
     return 0;
 }
 
-
-//Verifica que el método utilizado sea del tipo "GET" 
-//y el recurso sea "/sensor".
-// 
-//Si el método no es "GET", la respuesta será un 
-//error de tipo "400 Bad request", y si el
-//recurso no es "/sensor", la respuesta será un error 
-//de tipo "404 Not found".  y devuelve 2
-//Si el método y recurso son válidos, la respuesta es 
-//de tipo "200 OK" y devuelve 0
 char* req_porc_method_resource(struct server_req_proc* self) {
     char* answer = malloc(MAX_LEN_MESSAGE);
     if ( !answer ) return NULL;
