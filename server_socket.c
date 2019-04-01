@@ -14,11 +14,13 @@
 
 #define LEN_PORT 6
 #define MAX_WAITING_CLIENTS 20
+#define MAX_LEN_BUF 2000 
 
 
 void server_socket_create(struct server_socket *self, char* _port) {
     self->port = malloc(LEN_PORT);
     snprintf(self->port, LEN_PORT , "%s", _port);
+    self->current_peerskt = 0;
 }
 
 bool server_socket_start(struct server_socket *self) {
@@ -80,6 +82,7 @@ bool server_socket_start(struct server_socket *self) {
 //-1 si falla
 int server_socket_accept_client(struct server_socket *self){
     int peerskt = accept(self->skt, NULL, NULL);
+    self->current_peerskt = peerskt;
     return peerskt;
 }
 
@@ -87,4 +90,46 @@ void server_socket_destroy(struct server_socket *self) {
     free(self->port);
     shutdown(self->skt, SHUT_RDWR);
     close(self->skt);
+}
+
+char* server_socket_receive_message(struct server_socket *self) { 
+    char* buf = malloc(MAX_LEN_BUF);
+    memset(buf, 0, MAX_LEN_BUF);
+    int received = 0;
+    int s = 0;
+    bool is_the_socket_valid = true;
+    while (received < MAX_LEN_BUF && is_the_socket_valid) {
+        s = recv(self->current_peerskt, buf + received, \
+                    MAX_LEN_BUF - received, MSG_NOSIGNAL);
+        if (s == 0) { 
+            is_the_socket_valid = false;
+        } else if (s < 0) { 
+            is_the_socket_valid = false;
+        } else {
+            received += s;
+        }
+    }
+    return buf;
+}
+
+int server_socket_send_message(struct server_socket *self, char* buf, \
+                                int size) {
+    int sent = 0;
+    int s = 0;
+    bool is_the_socket_valid = true;
+
+    while (sent < size && is_the_socket_valid) {
+        s = send(self->current_peerskt, &buf[sent], size-sent, MSG_NOSIGNAL);
+        if (s <= 0) {
+            return -1;
+        } else {
+            sent += s;
+        }
+    }
+    return sent;
+}
+
+void server_socket_disable_client(struct server_socket *self) {
+        shutdown(self->current_peerskt, SHUT_RDWR); 
+        close(self->current_peerskt);
 }

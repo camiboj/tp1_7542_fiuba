@@ -12,28 +12,10 @@
 
 #include "client_socket.h"
 
+#include "client_file_copier.h"
+
 #define MAX_LEN_FILENAME 100
 #define MAX_LEN_FILE 2000
-
-//otro tda?
-int file_processor(char* filename, size_t* path_len, char* path) {
-    FILE* file = fopen(filename, "r");
-    if (!file) {
-	    return 1;
-    }
-
-    int i = 0;
-    while (!feof(file) && i < MAX_LEN_FILE) {
-	    int c = fgetc(file);
-        path[i] = c;
-	    i++;
-    }
-    path[i-2] = (int)'\0'; //me estaba leyendo un \n y un eof o algo asi
-    fclose(file);
-    *path_len = i - 2;
-    return 0;
-}
-//hasta aca obvio
 
 int main(int argc, char* argv[]) {
     if (argc != 3 && argc !=4) {
@@ -51,9 +33,12 @@ int main(int argc, char* argv[]) {
 	    snprintf(filename, MAX_LEN_FILENAME, "%s", argv[3]);
     }
 
+    struct file_copier copier;
     char path[MAX_LEN_FILE];
     size_t path_len;
-    if (file_processor(filename, &path_len, path)){
+    file_copier_create(&copier, filename, &path_len, path);
+
+    if (!file_copier_start(&copier)){
 	    return 1;
     }
 
