@@ -15,6 +15,8 @@
 
 
 #include "server_list.h"
+#include "server_socket.h"
+#include "server_sensor.h"
 
 #define MAX_LEN_FILENAME 100
 #define MAX_LEN_REQUEST 2000
@@ -49,27 +51,8 @@
 #define MAX_LEN_REPLY 2000
 
 #define MAX_LEN_TEMPERATURE_MESSAGE 200
-#define MAX_WAAITING_CLIENTS 20
-/*
-   Ejemplo de un echo server.
-   Este ejemplo TIENE UN BUG (en realidad son 2 combinados).
-   La idea de un echo server es la siguiente:
-      1) El cliente se conecta a este server y le envia un numero 
-         de 2 digitos (en texto) que representa la longitud del 
-         mensaje que le sigue.
-      2) El cliente luego envia ese mensaje de esa longitud
-      3) El server lee ese mensaje y luego se lo reenvia al cliente.
-   Se compila con 
-      gcc -std=c99 -o echoserver echoserver.c 
-   Se ejecuta como
-      ./echoserver PORT PASSWORD
-   donde PORT es el nombre de un servicio ("http" por ejemplo) o el numero
-   de puerto directamente (80 por ejemplo) 
-   PASSWORD es un string que representa algo secreto. No tiene nada que
-   ver con el echo server y es borrado de la memoria con free
-   Asi que no deberia haber ningun problema en, por ejemplo, que pongas 
-   tu password de facebook/clave bancaria, no?
-*/
+
+#define MAX_LEN_BUF 2000 
 
 
 
@@ -80,7 +63,6 @@
 int str_check(const char* request, size_t len,const char* str) {//, char* err) {
     for (int i = 0; i < len; ++i) { 
 	    if (request[i] != str[i]) {
-	        //fprintf(stderr, "%s\n", err);
 	        return 1;	    
 	    }
     }
@@ -121,13 +103,9 @@ void user_agent_processor(char* request, struct List *list) {
     size_t len_value = 0;
     while (value_start[len_value] && \
            strcmp(value_start + len_value, END_USER_AGENT_VAL)) {
-               //printf("\nes fin? : %s \n", request);
                len_value++;
     }
     char value[MAX_LEN_USER_AGENT_VALUE]; //Do not use variable-length arrays
-
-    //ACA
-
     snprintf(value, MAX_LEN_USER_AGENT_VALUE -1 , "%s", value_start);
     char* value_end = strstr(value, "\n");
     if (value_end) {
@@ -138,7 +116,6 @@ void user_agent_processor(char* request, struct List *list) {
 
 
 int send_message(int skt, char *buf, int size) {
-    //printf("\nsize = %d\n", size);
     int sent = 0;
     int s = 0;
     bool is_the_socket_valid = true;
@@ -162,27 +139,12 @@ int send_message(int skt, char *buf, int size) {
     }
 }
 
-char* sensor_reader(FILE* sensor_file) {
-    unsigned short int read;
-    size_t len = fread((void*)&read, SIZE_OF_TEMPERATURE, 1, sensor_file);
-    if (!len) return NULL;
-    //printf("%d\n", read);
-    float temperature = (float) ntohs(read);
-    temperature = (temperature - 2000) / 100;
-    char* message = malloc(MAX_LEN_TEMPERATURE_MESSAGE);
-    snprintf(message, SIZE_TO_REPLACE,"%.2f", temperature);
-    //printf("0: %s\n", message);
-    return message;
-}
-
-
 void copy_and_complet(char* tamplate_filename, char* reply, \
                       size_t len_reply, char* replacement) {
     char aux[MAX_LEN_REPLY];
     
     FILE* tamplate = fopen(tamplate_filename, "r");
     if (!tamplate_filename) {
-	    //fprintf(stderr, "ERROR\n");
 	    return;
     }
     
@@ -194,44 +156,44 @@ void copy_and_complet(char* tamplate_filename, char* reply, \
     aux[i-1] = '\0';
 
     char* to_replace = strstr(aux, TO_REPLACE);
-    //printf("\nrplacement = %s\n", replacement);
-    //size_t len_replacement = strlen(replacement);
-
-    
-    
+  
     snprintf(to_replace, strlen(to_replace) - 1, "%s", replacement);
     snprintf(reply, len_reply - 1, "%s", aux);
     
-    //printf("1: %s\n\n", reply);
     int len = strlen(&to_replace[SIZE_TO_REPLACE]);
     snprintf(&reply[strlen(reply)], len,"%s", &to_replace[SIZE_TO_REPLACE]);
-    //printf("2: %s\n", reply);
     fclose(tamplate);
 }
 
-bool process_client(int skt, char *buf, int size, struct List* list,\
-                     char* temperature, char* tamplate_filename) {
+void receive_message(int skt, char* buf, int size){
     int received = 0;
     int s = 0;
     bool is_the_socket_valid = true;
-    bool is_method_resource_valid = true;
-    
-    //bool is_first_line = true;
-    //char* line;
-    char* possible_answers[] = {METHRES_SUCCESS_MESSAGE, METHOD_ERROR_MESSAGE,\
-                               RESOURCE_ERROR_MESSAGE};
-
-    
     while (received < size && is_the_socket_valid) {
         s = recv(skt, buf + received, size - received, MSG_NOSIGNAL);
-        if (s == 0) { // nos cerraron el socket :(
+        if (s == 0) { 
             is_the_socket_valid = false;
-        } else if (s < 0) { // hubo un error >(
+        } else if (s < 0) { 
             is_the_socket_valid = false;
         } else {
             received += s;
         }
     }
+}
+
+bool process_client(int skt, struct List* list,\
+                     char* temperature, char* tamplate_filename) {
+    bool is_method_resource_valid = true;
+    
+    char* possible_answers[] = {METHRES_SUCCESS_MESSAGE, METHOD_ERROR_MESSAGE,\
+                               RESOURCE_ERROR_MESSAGE};
+
+    
+
+    char buf[MAX_LEN_BUF];
+    memset(buf, 0, MAX_LEN_BUF);
+    receive_message(skt, buf, MAX_LEN_BUF -1);
+
     int answer = method_resource_processor(buf);
     is_method_resource_valid = ! answer;
     send_message(skt, possible_answers[answer], \
@@ -245,127 +207,6 @@ bool process_client(int skt, char *buf, int size, struct List* list,\
     return true;
 }
 
-
-
-
-
-
-#define MAX_LEN_BUF 2000 
-
-int serv_start(char* port, struct List* list, \
-                FILE* sensor_file, char* template_filename) {
-   int s = 0;
-   bool continue_running = true;
-   bool is_the_accept_socket_valid = true;
-   
-   struct addrinfo hints;
-   struct addrinfo *ptr;
-
-   int skt, peerskt = 0;
-   int val;
-
-   char buf[MAX_LEN_BUF];
-   //char *tmp;
-
-   //if (argc != 3) return 1; 
-
-   //process(argv[2]);
-
-   memset(&hints, 0, sizeof(struct addrinfo));
-   hints.ai_family = AF_INET;       /* IPv4 (or AF_INET6 for IPv6)     */
-   hints.ai_socktype = SOCK_STREAM; /* TCP  (or SOCK_DGRAM for UDP)    */
-   hints.ai_flags = AI_PASSIVE;     /* AI_PASSIVE for server           */
-
-   s = getaddrinfo(NULL, port, &hints, &ptr);
-
-   if (s != 0) { 
-      printf("Error in getaddrinfo: %s\n", gai_strerror(s));
-      return 1;
-   }
-
-   skt = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-
-   if (skt == -1) {
-      printf("Error1: %s\n", strerror(errno));
-      freeaddrinfo(ptr);
-      return 1;
-   }
-
-   // Activamos la opcion de Reusar la Direccion en caso de que esta
-   // no este disponible por un TIME_WAIT
-   val = 1;
-   s = setsockopt(skt, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
-   if (s == -1) {
-      printf("Error: %s\n", strerror(errno));
-      close(skt);
-      freeaddrinfo(ptr);
-      return 1;
-   }
-
-   // Decimos en que direccion local queremos escuchar, en especial el puerto
-   // De otra manera el sistema operativo elegiria un puerto random
-   // y el cliente no sabria como conectarse
-   s = bind(skt, ptr->ai_addr, ptr->ai_addrlen);
-   if (s == -1) {
-      printf("Error: %s\n", strerror(errno));
-      close(skt);
-      freeaddrinfo(ptr);
-      return 1;
-   }
-
-   freeaddrinfo(ptr);
-
-   // Cuanto clientes podemos mantener en espera antes de poder acceptarlos?
-   s = listen(skt, MAX_WAAITING_CLIENTS);
-   if (s == -1) {
-      printf("Error: %s\n", strerror(errno));
-      close(skt);
-      return 1;
-   }
-    char* temperature = 0;
-    bool was_last_client_valid = true;
-
-    while (continue_running) { 
-        if (was_last_client_valid) {
-            temperature = sensor_reader(sensor_file);
-        }
-        if (feof(sensor_file)){
-            break;
-        }
-        peerskt = accept(skt, NULL, NULL);   // aceptamos un cliente
-        if (peerskt == -1) {
-            printf("Error: %s\n", strerror(errno));
-            continue_running = false;
-            is_the_accept_socket_valid = false;
-        } else {
-            //printf("New client\n");
-            memset(buf, 0, MAX_LEN_BUF);
-            was_last_client_valid = process_client(peerskt, buf, \
-                                             MAX_LEN_BUF-1, list,\
-                                             temperature, template_filename);
-            shutdown(peerskt, SHUT_RDWR); 
-            close(peerskt);
-            if (was_last_client_valid) free(temperature);
-         //len = atoi(buf);
-         //printf("Echoo %i bytes\n", len);
-      }
-   }
-   
-   shutdown(skt, SHUT_RDWR);
-   close(skt);
-
-   if (is_the_accept_socket_valid) {
-      return 1;
-   } else { 
-      return 0;
-   }
-}
-
-
-//******************************************************
-//*		            	SERVER               	  	   *
-//******************************************************
-
 int main(int argc, char* argv[]) {
     if (argc !=4) {
 	    fprintf(stderr, "Uso:\n./server <puerto> <input> [<template>]\n");
@@ -376,28 +217,47 @@ int main(int argc, char* argv[]) {
     char* sensor_filename = argv[2];
     char* template_filename = argv[3];
     
+    //start
+    struct server_sensor sensor;
+    server_sensor_create(&sensor, sensor_filename);
 
-
-    FILE* file = fopen(sensor_filename, "r+b");
-    if (!file) {
-	    //fprintf(stderr, "ERROR\n");
-	    return 1;
-    }
-
-    
     struct List list;
     list_create(&list);
-
-
     
-    //while (!feof(file) && i < MAX_LEN_REQUEST) {
-
-        
     
-    serv_start(port, &list, file, template_filename);
-    //fin
+
+    struct server_socket socket;
+    server_socket_create(&socket, port);
+
+    if (!server_socket_start(&socket)) return 1;
+
+    bool was_last_client_valid = true;
+    char* temperature;
+
+    while (true) {
+        if (was_last_client_valid) {
+            temperature = server_sensor_read(&sensor);
+        }
+        if ( server_sensor_off(&sensor) ){
+            break;
+        }
+        int peerskt = server_socket_accept_client(&socket);
+        if (peerskt == -1) {
+            return 1;
+        }
+        was_last_client_valid = process_client(peerskt, &list,\
+                                   temperature, template_filename);
+        shutdown(peerskt, SHUT_RDWR); 
+        close(peerskt);
+        if (was_last_client_valid) free(temperature);
+    }
+
     list_print(&list);
+
     list_destroy(&list);
-    fclose(file);
+    
+    server_socket_destroy(&socket);
+    server_sensor_destroy(&sensor);
+    //end
     return 0;
 }
