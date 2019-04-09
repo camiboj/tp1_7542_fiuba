@@ -18,13 +18,14 @@
 #define LEN_PORT 6
 
 
-bool client_socket_send_request(struct client_socket *self) {
+bool client_socket_send_request(struct client_socket *self, \
+                                size_t request_len, char*request) {
     int s = 0;
     int bytes_sent = 0;
     
-    while (bytes_sent < self->request_len) {
-        s = send(self->skt, &self->request[bytes_sent], \
-                self->request_len - bytes_sent, MSG_NOSIGNAL);
+    while (bytes_sent < request_len) {
+        s = send(self->skt, &request[bytes_sent], \
+                request_len - bytes_sent, MSG_NOSIGNAL);
 
         if (s <= 0) {
             shutdown(self->skt, SHUT_RDWR);
@@ -34,8 +35,11 @@ bool client_socket_send_request(struct client_socket *self) {
             bytes_sent += s;
         }
     }
-    shutdown(self->skt, SHUT_WR);
     return true;
+}
+
+void client_socket_disables_send_operations(struct client_socket *self) {
+    shutdown(self->skt, SHUT_WR);
 }
 
 bool client_socket_receive_reponse(struct client_socket *self) {
@@ -100,14 +104,10 @@ bool client_socket_start(struct client_socket *self) {
     return are_we_connected;
 }
 
-void client_socket_create(struct client_socket *self, size_t _request_len,\
-                         char* _request, char* _host, char* _port) {
+void client_socket_create(struct client_socket *self, char* _host, char*_port) {
     self->host = malloc(LEN_HOST);
     self->port = malloc(LEN_PORT);
-    self->request = malloc(_request_len + 1);
     
-    self->request_len = _request_len;
-    snprintf(self->request, _request_len  + 1, "%s", _request);
     snprintf(self->host, LEN_HOST , "%s", _host);
     snprintf(self->port, LEN_PORT , "%s", _port);
 }
@@ -116,7 +116,7 @@ void client_socket_destroy(struct client_socket *self) {
     shutdown(self->skt, SHUT_RDWR);
     close(self->skt);
 
-    free(self->request);
+    //free(self->request);
     free(self->host);
     free(self->port);
 }

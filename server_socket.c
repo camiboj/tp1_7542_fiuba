@@ -28,7 +28,7 @@ bool server_socket_create(struct server_socket *self, char* _port) {
 bool server_socket_start(struct server_socket *self) {
     int s = 0;
 
-    struct addrinfo hints;
+    struct addrinfo hints; 
     struct addrinfo *ptr;
 
     int skt = 0; 

@@ -34,22 +34,25 @@ int main(int argc, char* argv[]) {
     }
 
     struct file_copier copier;
-    char path[MAX_LEN_FILE];
-    size_t path_len;
-    file_copier_create(&copier, filename, &path_len, path);
+    //char path[MAX_LEN_FILE];
+    //size_t path_len;
+
+    char* host = argv[1];    
+    char* port = argv[2];
+    struct client_socket socket;
+    client_socket_create(&socket, host, port);
+    if (!client_socket_start(&socket)) {
+        return 1;
+    }
+    file_copier_create(&copier, filename, &socket);
 
     if (!file_copier_start(&copier)){
 	    return 1;
     }
 
-    char* host = argv[1];    
-    char* port = argv[2];
-    struct client_socket socket;
-    client_socket_create(&socket, path_len, path, host, port);
-    if (!client_socket_start(&socket)) {
-        return 1;
-    }
-    client_socket_send_request(&socket);
+
+    client_socket_disables_send_operations(&socket);
+    //client_socket_send_request(&socket);
     client_socket_receive_reponse(&socket);
     client_socket_destroy(&socket);
     return 0;

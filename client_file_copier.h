@@ -1,15 +1,15 @@
 #ifndef CLIENT_FILE_COPIER_H
 #define CLIENT_FILE_COPIER_H
 #include <stdint.h>
+#include "client_socket.h"
 
 struct file_copier {
     char* filename;
-    char* path;
-    size_t* path_len;
+    struct client_socket* socket;
 };
 
 void file_copier_create(struct file_copier* self,\
-                     char* filename, size_t* path_len, char* path);
+                     char* _filename, struct client_socket* _socket);
 
 /*
 abre el archivo cuyo nombre tiene almacenado como atributo
