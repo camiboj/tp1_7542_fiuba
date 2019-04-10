@@ -1,5 +1,5 @@
 - Se carga todo el archivo en memoria innecesariamente (file_copier) y si el archivo mide mas de 2000 bytes? 
-- Heap innecesario, client_socket_create, y copias innecesarias 
+- Heap innecesario, client_socket_create, y copias innecesarias ???
 - Las funciones client_*_send y client_*_receive no debe mezclar el envio/recepcion de datos con el shutdown/close 
 - Es muy facil terminar en un double free (double close) 
 - Codigo duplicado entre el cliente y el servidor, ponerlo en un archivo con el prefijo "common" 

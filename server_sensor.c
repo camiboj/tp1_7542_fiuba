@@ -12,8 +12,8 @@
 #define SIZE_TO_REPLACE 9
 
 
-bool server_sensor_create(struct server_sensor* self, char* filename) {
-    FILE* file = fopen(filename, "r+b");
+bool sensor_create(struct sensor* self, char* filename) {
+    FILE* file = fopen(filename, "rb");
     if (!file) {
 	    return false;
     }
@@ -22,7 +22,7 @@ bool server_sensor_create(struct server_sensor* self, char* filename) {
 }
 
 
-char* server_sensor_read(struct server_sensor* self) {
+char* sensor_read(struct sensor* self) {
     unsigned short int read;
     size_t len = fread((void*)&read, SIZE_OF_TEMPERATURE, 1, self->file);
     if (!len) return NULL;
@@ -34,11 +34,11 @@ char* server_sensor_read(struct server_sensor* self) {
     return message;
 }
 
-bool does_the_sensor_still_have_temperatures(struct server_sensor* self) {
+bool does_the_sensor_still_have_temperatures(struct sensor* self) {
     return !feof(self->file);
 }
 
 
-void server_sensor_destroy(struct server_sensor* self) {
+void sensor_destroy(struct sensor* self) {
     fclose(self->file);
 }

@@ -6,16 +6,19 @@
 #include <stdbool.h>
 #include "server_tamplate.h"
 
+
 #define TO_REPLACE "{{datos}}"
 #define SIZE_TO_REPLACE 9
 #define MAX_LEN_REPLY 2000
 
-bool server_template_create(struct server_template *self, char* filename) {
-    self->text = malloc(MAX_LEN_REPLY);
-    if ( !self->text ) return false;
+
+
+
+bool template_create(struct template *self, char* filename, \
+                    struct socket* skt) {
+    self->skt = skt;
     FILE* file = fopen(filename, "r");
     if (!file) {
-        free(self->text);
 	    return false;
     }
     
@@ -30,22 +33,14 @@ bool server_template_create(struct server_template *self, char* filename) {
     return true;
 }
 
-char* server_template_cat(struct server_template *self, char* replacement) {
-    char* reply = malloc(MAX_LEN_REPLY);
-    if ( !reply ) return NULL;
-    char aux[MAX_LEN_REPLY];
-    snprintf(aux, MAX_LEN_REPLY, "%s", self->text);
-    
-    char* to_replace = strstr(aux, TO_REPLACE);
-  
-    snprintf(to_replace, strlen(to_replace) - 1, "%s", replacement);
-    snprintf(reply, MAX_LEN_REPLY - 1, "%s", aux);
-    
-    int len = strlen(&to_replace[SIZE_TO_REPLACE]);
-    snprintf(&reply[strlen(reply)], len,"%s", &to_replace[SIZE_TO_REPLACE]);
-    return reply;
+void template_send_cat(struct template *self, char* replacement) {
+    char* p = strstr(self->text, TO_REPLACE);
+    socket_send_all(self->skt, p - self->text, self->text);
+    socket_send_all(self->skt, strlen(replacement), replacement);
+    socket_send_all(self->skt, strlen(p + SIZE_TO_REPLACE) - 1 , \
+                    p + SIZE_TO_REPLACE);
 }
 
-void server_template_destoy(struct server_template *self) {
-    free(self->text);
+void template_destroy(struct template *self) {
+    //do nothing
 }

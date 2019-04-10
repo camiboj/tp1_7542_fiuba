@@ -32,7 +32,7 @@
 
 
 
-bool req_proc_create(struct server_req_proc* self, char* request) {
+bool req_proc_create(struct req_proc* self, char* request) {
     self->request = malloc(MAX_LEN_REQUEST);
     if ( !self->request ) return false;
     snprintf(self->request, MAX_LEN_REQUEST, "%s", request);
@@ -40,7 +40,7 @@ bool req_proc_create(struct server_req_proc* self, char* request) {
     return true;
 }
 
-void req_proc_destroy(struct server_req_proc* self) {
+void req_proc_destroy(struct req_proc* self) {
     free(self->request);
 }
 
@@ -56,7 +56,7 @@ int str_check(const char* request, size_t len,const char* str) {//, char* err) {
     return 0;
 }
 
-char* req_porc_method_resource(struct server_req_proc* self) {
+char* req_porc_method_resource(struct req_proc* self) {
     char* answer = malloc(MAX_LEN_MESSAGE);
     if ( !answer ) return NULL;
     enum error {METHRES_SUCCESS, METHOD_ERROR, RESOURCE_ERROR};
@@ -78,12 +78,12 @@ char* req_porc_method_resource(struct server_req_proc* self) {
 }
 
 
-bool req_porc_is_method_resource_valid(struct server_req_proc* self) {
+bool req_porc_is_method_resource_valid(struct req_proc* self) {
     return self->is_method_resource_valid;
 }
 
 
-char* req_porc_user_agent(struct server_req_proc* self) {
+char* req_porc_user_agent(struct req_proc* self) {
     char* key_start = strstr(self->request, USER_AGENT_KEY);
     if (!key_start) {
         return NULL;

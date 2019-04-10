@@ -3,14 +3,14 @@
 #include <stdbool.h>
 
 
-struct server_req_proc {
+struct req_proc {
     char* request;
     bool is_method_resource_valid;
 };
 
 
-bool req_proc_create(struct server_req_proc* self, char* request);
-void req_proc_destroy(struct server_req_proc* self);
+bool req_proc_create(struct req_proc* self, char* request);
+void req_proc_destroy(struct req_proc* self);
 
 /*
 Verifica que el método utilizado sea del tipo "GET" 
@@ -23,13 +23,13 @@ de tipo "404 Not found".
 Si el método y recurso son válidos, la respuesta es 
 de tipo "200 OK".
 */
-char* req_porc_method_resource(struct server_req_proc* self);
-bool req_porc_is_method_resource_valid(struct server_req_proc* self);
+char* req_porc_method_resource(struct req_proc* self);
+bool req_porc_is_method_resource_valid(struct req_proc* self);
 
 /*
 Busca y devuelve el valor del user-agent en el 
 request con formato clave:valor. 
 */
-char* req_porc_user_agent(struct server_req_proc* self);
+char* req_porc_user_agent(struct req_proc* self);
 
 #endif
